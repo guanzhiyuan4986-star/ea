@@ -1,5 +1,5 @@
 #property copyright "Golden Pixiu EA"
-#property version   "1.06"
+#property version   "1.07"
 #property strict
 
 #include <Trade/Trade.mqh>
@@ -1304,6 +1304,16 @@ bool GetMartSignal(bool &longSignal, bool &shortSignal)
    close1 = iClose(_Symbol, InpMartEntryTF, 1);
    if(close1 <= 0.0) { g_noEntryReason = "指标数据读取失败"; return false; }
 
+   // NaN检查
+   for(int i = 0; i < 3; i++)
+     {
+      if(emaFast[i] != emaFast[i] || emaSlow[i] != emaSlow[i])
+        {
+         g_noEntryReason = "指标数据异常(NaN)";
+         return false;
+        }
+     }
+
    bool fastAbove = emaFast[1] > emaSlow[1];
    bool fastBelow = emaFast[1] < emaSlow[1];
    bool closeAboveFast = close1 > emaFast[1];
@@ -1334,6 +1344,10 @@ bool GetMartSignal(bool &longSignal, bool &shortSignal)
                g_noEntryReason = "H4趋势过滤否决(价格在EMA" + IntegerToString(InpMartH4EmaPeriod) + "上方)";
               }
            }
+        }
+      else
+        {
+         Print("[V1.07] H4 EMA CopyBuffer失败, 跳过H4滤波");
         }
      }
 
@@ -1391,6 +1405,10 @@ bool GetMartSignal(bool &longSignal, bool &shortSignal)
             shortSignal = false;   // CCI oversold, veto short
             g_noEntryReason = "CCI极端过滤(CCI超-" + IntegerToString(InpSMC_CCIExtreme) + ")";
            }
+        }
+      else
+        {
+         Print("[V1.07] CCI CopyBuffer失败, 跳过CCI极端过滤");
         }
      }
 
@@ -1579,7 +1597,7 @@ bool CheckDailyLossLock()
 
    double floatingNow = g_cachedMartPnl;
    double modulePnlNow = g_dayRealizedPnl + floatingNow;
-   if(MathAbs(modulePnlNow - g_dayStartModulePnl) < 1e-8)
+   if(MathAbs(modulePnlNow - g_dayStartModulePnl) < 0.01)
       return false;
 
    double deltaPnl = modulePnlNow - g_dayStartModulePnl;
@@ -2166,7 +2184,7 @@ double GetCurrentDayDrawdownPct()
       return 0.0;
    double floatingNow = g_cachedMartPnl;
    double modulePnlNow = g_dayRealizedPnl + floatingNow;
-   if(MathAbs(modulePnlNow - g_dayStartModulePnl) < 1e-8)
+   if(MathAbs(modulePnlNow - g_dayStartModulePnl) < 0.01)
       return 0.0;
 
    double deltaPnl = modulePnlNow - g_dayStartModulePnl;
@@ -2505,7 +2523,7 @@ void CreateStatusPanel()
    ObjectSetInteger(0, OBJ_HEADER, OBJPROP_ZORDER, 3);
    ObjectSetInteger(0, OBJ_HEADER, OBJPROP_SELECTABLE, false);
    ObjectSetInteger(0, OBJ_HEADER, OBJPROP_HIDDEN, true);
-   ObjectSetString(0, OBJ_HEADER, OBJPROP_TEXT, "金貔貅 v1.06");
+   ObjectSetString(0, OBJ_HEADER, OBJPROP_TEXT, "金貔貅 v1.07");
 
    // --- Sub-header ---
    if(ObjectFind(0, OBJ_SUBHDR) < 0)
