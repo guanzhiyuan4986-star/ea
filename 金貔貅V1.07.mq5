@@ -1,5 +1,5 @@
 #property copyright "Golden Pixiu EA"
-#property version   "1.07"
+#property version   "1.08"
 #property strict
 
 #include <Trade/Trade.mqh>
@@ -1224,8 +1224,22 @@ void RefreshMartBasketState()
       int posL = StringFind(cmt, "_L");
       if(posL >= 0)
         {
-         int layerSeq = (int)StringToInteger(StringSubstr(cmt, posL + 2));
-         if(layerSeq + 1 > g_martMaxLayerSeq) g_martMaxLayerSeq = layerSeq + 1;
+         string seqStr = StringSubstr(cmt, posL + 2);
+         int layerSeq = (int)StringToInteger(seqStr);
+         // 验证解析结果合理性（0-999范围）
+         if(layerSeq >= 0 && layerSeq < 1000)
+           {
+            if(layerSeq + 1 > g_martMaxLayerSeq) g_martMaxLayerSeq = layerSeq + 1;
+           }
+         else
+           {
+            PrintFormat("[V1.08] 警告: 订单#%d 注释层序号异常: %s", ticket, seqStr);
+           }
+        }
+      else if(StringFind(cmt, MART_COMMENT) >= 0)
+        {
+         // 马丁单但缺少_L标记，记录警告
+         PrintFormat("[V1.08] 警告: 马丁订单#%d 缺少_L层序号标记, comment=%s", ticket, cmt);
         }
 
       if(type == POSITION_TYPE_BUY)
@@ -1247,6 +1261,13 @@ void RefreshMartBasketState()
    if(buys > 0 && sells == 0) g_martDirection = MART_DIR_BUY;
    else if(sells > 0 && buys == 0) g_martDirection = MART_DIR_SELL;
    else g_martDirection = MART_DIR_NONE;
+
+   // 回退逻辑：若注释解析失败但有持仓，用持仓数推算层序号
+   if(g_martMaxLayerSeq == 0 && g_martLayerCount > 1)
+     {
+      g_martMaxLayerSeq = g_martLayerCount;
+      PrintFormat("[V1.08] 层序号回退: 使用持仓数 %d 作为 g_martMaxLayerSeq", g_martLayerCount);
+     }
 
    g_martBasketPeakPnL = MathMax(g_martBasketPeakPnL, floatingPnl);
    g_cachedMartPnl = floatingPnl;
@@ -1322,8 +1343,10 @@ bool GetMartSignal(bool &longSignal, bool &shortSignal)
    emaLong  = (fastAbove && closeAboveFast);
    emaShort = (fastBelow && closeBelowFast);
 
-   // Optional H4 EMA50 filter (applies to EMA signal only)
-   if(InpMartUseH4Filter && (emaLong || emaShort))
+   // H4方向判断（对所有模式生效）
+   bool h4Bullish = false;
+   bool h4Bearish = false;
+   if(InpMartUseH4Filter)
      {
       double emaH4[2];
       if(CopyBuffer(g_hEmaH4, 0, 0, 2, emaH4) >= 2)
@@ -1331,23 +1354,24 @@ bool GetMartSignal(bool &longSignal, bool &shortSignal)
          double closeH4 = iClose(_Symbol, PERIOD_H4, 1);
          if(closeH4 > 0.0)
            {
-            bool h4Bullish = (closeH4 > emaH4[1]);
-            bool h4Bearish = (closeH4 < emaH4[1]);
+            h4Bullish = (closeH4 > emaH4[1]);
+            h4Bearish = (closeH4 < emaH4[1]);
+            // EMA信号的H4过滤（保持原有逻辑）
             if(emaLong && !h4Bullish)
               {
                emaLong = false;
-               g_noEntryReason = "H4趋势过滤否决(价格在EMA" + IntegerToString(InpMartH4EmaPeriod) + "下方)";
+               g_noEntryReason = "H4趋势不支持做多";
               }
             if(emaShort && !h4Bearish)
               {
                emaShort = false;
-               g_noEntryReason = "H4趋势过滤否决(价格在EMA" + IntegerToString(InpMartH4EmaPeriod) + "上方)";
+               g_noEntryReason = "H4趋势不支持做空";
               }
            }
         }
       else
         {
-         Print("[V1.07] H4 EMA CopyBuffer失败, 跳过H4滤波");
+         Print("[V1.08] H4 EMA CopyBuffer失败, 跳过H4滤波");
         }
      }
 
@@ -1367,7 +1391,15 @@ bool GetMartSignal(bool &longSignal, bool &shortSignal)
          ComputeSMCScore(smcDir, smcScore);
          longSignal  = (smcDir == 1 && smcScore >= InpSMCScoreThreshold);
          shortSignal = (smcDir == -1 && smcScore >= InpSMCScoreThreshold);
-         if(!longSignal && !shortSignal)
+
+         // H4过滤也应用于SMC信号
+         if(InpMartUseH4Filter)
+           {
+            if(longSignal && !h4Bullish)  { longSignal = false; g_noEntryReason = "H4趋势不支持SMC做多"; }
+            if(shortSignal && !h4Bearish) { shortSignal = false; g_noEntryReason = "H4趋势不支持SMC做空"; }
+           }
+
+         if(!longSignal && !shortSignal && StringLen(g_noEntryReason) == 0)
             g_noEntryReason = "SMC评分不足(" + IntegerToString(smcScore) + "<" + IntegerToString(InpSMCScoreThreshold) + ")";
         }
          break;
@@ -1383,7 +1415,15 @@ bool GetMartSignal(bool &longSignal, bool &shortSignal)
          int totalBear = (emaShort ? InpSMCWeightEMA : 0) + (smcDir == -1 ? normalizedSMC : 0);
          longSignal  = (totalBull >= InpSMCScoreThreshold && totalBull > totalBear);
          shortSignal = (totalBear >= InpSMCScoreThreshold && totalBear > totalBull);
-         if(!longSignal && !shortSignal)
+
+         // H4过滤也应用于综合信号
+         if(InpMartUseH4Filter)
+           {
+            if(longSignal && !h4Bullish)  { longSignal = false; g_noEntryReason = "H4趋势不支持综合做多"; }
+            if(shortSignal && !h4Bearish) { shortSignal = false; g_noEntryReason = "H4趋势不支持综合做空"; }
+           }
+
+         if(!longSignal && !shortSignal && StringLen(g_noEntryReason) == 0)
             g_noEntryReason = "综合评分不足(多:" + IntegerToString(totalBull) + " 空:" + IntegerToString(totalBear) + " 需≥" + IntegerToString(InpSMCScoreThreshold) + ")";
         }
          break;
@@ -1408,7 +1448,7 @@ bool GetMartSignal(bool &longSignal, bool &shortSignal)
         }
       else
         {
-         Print("[V1.07] CCI CopyBuffer失败, 跳过CCI极端过滤");
+         Print("[V1.08] CCI CopyBuffer失败, 跳过CCI极端过滤");
         }
      }
 
@@ -2523,7 +2563,7 @@ void CreateStatusPanel()
    ObjectSetInteger(0, OBJ_HEADER, OBJPROP_ZORDER, 3);
    ObjectSetInteger(0, OBJ_HEADER, OBJPROP_SELECTABLE, false);
    ObjectSetInteger(0, OBJ_HEADER, OBJPROP_HIDDEN, true);
-   ObjectSetString(0, OBJ_HEADER, OBJPROP_TEXT, "金貔貅 v1.07");
+   ObjectSetString(0, OBJ_HEADER, OBJPROP_TEXT, "金貔貅 v1.08");
 
    // --- Sub-header ---
    if(ObjectFind(0, OBJ_SUBHDR) < 0)
