@@ -1,5 +1,5 @@
 #property copyright "Golden Pixiu EA"
-#property version   "1.05"
+#property version   "1.06"
 #property strict
 
 #include <Trade/Trade.mqh>
@@ -368,6 +368,11 @@ input HEDGE_TRIGGER_MODE InpHedgeTriggerMode    = DEF_HEDGE_TRIGGER_MODE;     //
 input double           InpHedgeLossPercent      = DEF_HEDGE_LOSS_PCT;        // ▶ [权益%模式]亏损占权益多少%触发
 input double           InpHedgeAbsoluteUSD      = DEF_HEDGE_ABSOLUTE_USD;    // ▶ [绝对金额模式]亏损多少美分触发
 input double           InpHedgeRatio            = 0.5;                       // ▶ 对冲手数比例(0.5=50%)
+
+enum ENUM_HEDGE_RELEASE_MODE { HEDGE_RELEASE_FIXED, HEDGE_RELEASE_DYNAMIC };
+input ENUM_HEDGE_RELEASE_MODE InpHedgeReleaseMode = HEDGE_RELEASE_FIXED; // ▶ 对冲释放模式(固定/动态)
+input double           InpHedgeReleaseFixed     = 200.0;                     // ▶ 固定释放阈值(美分)
+input double           InpHedgeReleaseDynPerLayer = 5.0;                    // ▶ 动态模式每层增加(美分)
 
 input group "=== 状态面板 ==="
 input bool             InpShowStatusPanel        = DEF_SHOW_PANEL;            // ▶ 显示状态信息面板
@@ -854,6 +859,16 @@ void OnTick()
    if(!IsInMartSession())
      {
       g_noEntryReason = "非交易时段";
+      int totalPos = CountMartPositions();
+      if(totalPos > 0)
+        {
+         RefreshMartBasketState();
+         ManageMartBasketTP();
+         CheckMartHardSL();
+         ManageMartTrailing();
+        }
+      ComputeSignalDiagnostics();
+      if(InpShowStatusPanel) UpdateStatusPanel();
       return;
      }
 
@@ -2010,8 +2025,15 @@ void ManageHedgeRelease()
    // 计算原始马丁单的浮盈（不含对冲单）
    double martPnl = g_cachedMartPnl;
 
-   // 解除条件：原始持仓浮盈转正 → 平掉对冲单
-   if(martPnl >= 0.0)
+   // 计算对冲释放阈值
+   double releaseThreshold = 0.0;
+   if(InpHedgeReleaseMode == HEDGE_RELEASE_FIXED)
+      releaseThreshold = InpHedgeReleaseFixed;
+   else
+      releaseThreshold = g_martLayerCount * InpHedgeReleaseDynPerLayer;
+
+   // 解除条件：原始持仓浮盈达到阈值 → 平掉对冲单
+   if(martPnl >= releaseThreshold)
      {
       for(int i = PositionsTotal() - 1; i >= 0; --i)
         {
@@ -2479,7 +2501,7 @@ void CreateStatusPanel()
    ObjectSetInteger(0, OBJ_HEADER, OBJPROP_ZORDER, 3);
    ObjectSetInteger(0, OBJ_HEADER, OBJPROP_SELECTABLE, false);
    ObjectSetInteger(0, OBJ_HEADER, OBJPROP_HIDDEN, true);
-   ObjectSetString(0, OBJ_HEADER, OBJPROP_TEXT, "金貔貅 v1.05");
+   ObjectSetString(0, OBJ_HEADER, OBJPROP_TEXT, "金貔貅 v1.06");
 
    // --- Sub-header ---
    if(ObjectFind(0, OBJ_SUBHDR) < 0)
@@ -3249,6 +3271,7 @@ int DetectSupplyDemandZone(ENUM_TIMEFRAMES tf, int lookback, double impulseMulti
    if(atr <= 0.0) return 0;
    double impulseThreshold = atr * impulseMultiplier;
    double currentBid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   double currentAsk = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
 
    for(int i = 1; i <= lookback - 3; i++)
      {
@@ -3277,7 +3300,7 @@ int DetectSupplyDemandZone(ENUM_TIMEFRAMES tf, int lookback, double impulseMulti
       if(close_i > open_i)
         {
          // Bullish impulse -> demand zone below
-         if(currentBid >= zoneLow - tolerance && currentBid <= zoneHigh + tolerance)
+         if(currentAsk >= zoneLow - tolerance && currentAsk <= zoneHigh + tolerance)
             return 1;  // Price at demand zone = bullish
         }
       else
