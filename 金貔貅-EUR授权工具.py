@@ -153,7 +153,7 @@ class LicenseGeneratorApp:
             readonlybackground=self.INPUT_BG,
             highlightthickness=1, highlightcolor=self.BORDER_COLOR,
             highlightbackground=self.BORDER_COLOR,
-            state=tk.READONLY
+            state="readonly"
         )
         self.entry_license.pack(fill=tk.X, ipady=8, pady=(0, 12))
 
@@ -239,7 +239,7 @@ class LicenseGeneratorApp:
         self.entry_license.config(state=tk.NORMAL)
         self.entry_license.delete(0, tk.END)
         self.entry_license.insert(0, license_key)
-        self.entry_license.config(state=tk.READONLY)
+        self.entry_license.config(state="readonly")
 
         self.btn_copy.config(state=tk.NORMAL)
         self.lbl_status.config(text="授权码已生成", fg=self.STATUS_FG)
