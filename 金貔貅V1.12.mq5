@@ -542,6 +542,8 @@ int  g_logoSrcH = 0;
 // Signal diagnostic cache (for panel display)
 bool   g_sigMartEntryOk     = false;
 int    g_sigMartEmaDir      = 0;       // 1=up, -1=down, 0=neutral
+int    g_sigMartEmaScoreLong  = 0;     // EMA分级评分(多头) 0/弱/中/强
+int    g_sigMartEmaScoreShort = 0;     // EMA分级评分(空头) 0/弱/中/强
 double g_sigMartEmaFastVal  = 0.0;
 double g_sigMartEmaSlowVal  = 0.0;
 double g_sigMartClose1      = 0.0;
@@ -1395,6 +1397,50 @@ bool IsInMartSession()
 
 //=== Martingale Entry & Management Functions ===
 
+//+------------------------------------------------------------------+
+//| EMA分级评分: 根据快/慢线相对位置 + 收盘价位置 + 距慢线的ATR距离  |
+//| 满分 = InpSMCWeightEMA(默认30); 强=满分, 中=2/3满分, 弱=1/3满分 |
+//|   强(30): 趋势侧 + 收盘价突破快线 + |收盘-慢线|≥0.5×ATR         |
+//|   中(20): 趋势侧 + 收盘价突破快线 + 距慢线 < 0.5×ATR             |
+//|   弱(10): 趋势侧 + 收盘价位于快慢线之间(回踩中)                  |
+//|   0     : 反向 / 快慢线交叉混乱                                  |
+//+------------------------------------------------------------------+
+void CalcEmaScores(double fast1, double slow1, double close1, int &outLong, int &outShort)
+{
+   outLong = 0; outShort = 0;
+   if(fast1 <= 0.0 || slow1 <= 0.0 || close1 <= 0.0) return;
+
+   bool fastAbove = (fast1 > slow1);
+   bool fastBelow = (fast1 < slow1);
+
+   // 收盘价距慢线的距离(用入场TF的ATR做阈值,与动态间距同一根ATR)
+   double dist = MathAbs(close1 - slow1);
+   double atr  = (g_hATR_Spacing != INVALID_HANDLE) ? GetATRValue(g_hATR_Spacing) : 0.0;
+   bool farFromSlow = (atr > 0.0 && dist >= atr * 0.5);
+
+   int strongScore = InpSMCWeightEMA;                                // 满分
+   int midScore    = (int)MathRound(InpSMCWeightEMA * 2.0 / 3.0);    // 2/3
+   int weakScore   = (int)MathRound(InpSMCWeightEMA * 1.0 / 3.0);    // 1/3
+
+   // 多头分级: fast > slow
+   if(fastAbove)
+   {
+      if(close1 > fast1)                                  // 收盘在快线上方
+         outLong = farFromSlow ? strongScore : midScore;
+      else if(close1 >= slow1 && close1 <= fast1)         // 在快慢线之间(回踩)
+         outLong = weakScore;
+   }
+
+   // 空头分级: fast < slow
+   if(fastBelow)
+   {
+      if(close1 < fast1)                                  // 收盘在快线下方
+         outShort = farFromSlow ? strongScore : midScore;
+      else if(close1 <= slow1 && close1 >= fast1)         // 在快慢线之间(反弹)
+         outShort = weakScore;
+   }
+}
+
 // Check if we have a valid entry signal on the configured timeframe
 bool GetMartSignal(bool &longSignal, bool &shortSignal)
   {
@@ -1425,8 +1471,18 @@ bool GetMartSignal(bool &longSignal, bool &shortSignal)
    bool closeAboveFast = close1 > emaFast[1];
    bool closeBelowFast = close1 < emaFast[1];
 
-   emaLong  = (fastAbove && closeAboveFast);
-   emaShort = (fastBelow && closeBelowFast);
+   // ---- EMA 分级评分（0/弱/中/强 → 0/10/20/30）----
+   int emaScoreLong = 0, emaScoreShort = 0;
+   CalcEmaScores(emaFast[1], emaSlow[1], close1, emaScoreLong, emaScoreShort);
+
+   // 暴露给诊断面板
+   g_sigMartEmaScoreLong  = emaScoreLong;
+   g_sigMartEmaScoreShort = emaScoreShort;
+
+   // 兼容旧布尔判定: ≥2/3满分(默认20) 才视为"成立"，用于EMA_ONLY模式
+   int emaPassThreshold = (int)MathRound(InpSMCWeightEMA * 2.0 / 3.0);
+   emaLong  = (emaScoreLong  > 0 && emaScoreLong  >= emaPassThreshold);
+   emaShort = (emaScoreShort > 0 && emaScoreShort >= emaPassThreshold);
 
    // H4方向判断（对所有模式生效）
    bool h4Bullish = false;
@@ -1460,11 +1516,15 @@ bool GetMartSignal(bool &longSignal, bool &shortSignal)
             if(emaLong && !h4Bullish)
               {
                emaLong = false;
+               emaScoreLong = 0;       // 同步清零分级评分
+               g_sigMartEmaScoreLong = 0;
                g_noEntryReason = "H4趋势不支持做多";
               }
             if(emaShort && !h4Bearish)
               {
                emaShort = false;
+               emaScoreShort = 0;
+               g_sigMartEmaScoreShort = 0;
                g_noEntryReason = "H4趋势不支持做空";
               }
            }
@@ -1511,8 +1571,9 @@ bool GetMartSignal(bool &longSignal, bool &shortSignal)
          // 将SMC得分归一化到0-InpSMCWeightEMA范围（与EMA权重对等）
          int smcMaxTotal = InpSMCWeightImbalance + InpSMCWeightSD + InpSMCWeightOB + InpSMCWeightFVG + InpSMCWeightLV + InpSMCWeightBreaker;
          int normalizedSMC = (smcMaxTotal > 0) ? (int)MathRound((double)smcScore / smcMaxTotal * InpSMCWeightEMA) : 0;
-         int totalBull = (emaLong ? InpSMCWeightEMA : 0) + (smcDir == 1 ? normalizedSMC : 0);
-         int totalBear = (emaShort ? InpSMCWeightEMA : 0) + (smcDir == -1 ? normalizedSMC : 0);
+         // EMA 使用分级评分(0/弱/中/强)，与SMC归一化值同维度相加
+         int totalBull = emaScoreLong  + (smcDir == 1  ? normalizedSMC : 0);
+         int totalBear = emaScoreShort + (smcDir == -1 ? normalizedSMC : 0);
          longSignal  = (totalBull >= InpSMCScoreThreshold && totalBull > totalBear);
          shortSignal = (totalBear >= InpSMCScoreThreshold && totalBear > totalBull);
 
@@ -2210,6 +2271,8 @@ void ComputeSignalDiagnostics()
    // Reset martingale diagnostics
    g_sigMartEntryOk    = false;
    g_sigMartEmaDir     = 0;
+   g_sigMartEmaScoreLong  = 0;
+   g_sigMartEmaScoreShort = 0;
    g_sigMartEmaFastVal = 0.0;
    g_sigMartEmaSlowVal = 0.0;
    g_sigMartClose1     = 0.0;
@@ -2235,11 +2298,11 @@ void ComputeSignalDiagnostics()
       if(close1 > 0.0)
         {
          g_sigMartClose1 = close1;
-         bool fastAbove = emaFast[1] > emaSlow[1];
-         bool fastBelow = emaFast[1] < emaSlow[1];
-         bool longSig  = (fastAbove && close1 > emaFast[1]);
-         bool shortSig = (fastBelow && close1 < emaFast[1]);
-         g_sigMartEntryOk = (longSig || shortSig);
+         // 分级评分(与GetMartSignal保持一致)
+         CalcEmaScores(emaFast[1], emaSlow[1], close1, g_sigMartEmaScoreLong, g_sigMartEmaScoreShort);
+         int passTh = (int)MathRound(InpSMCWeightEMA * 2.0 / 3.0);
+         g_sigMartEntryOk = ((g_sigMartEmaScoreLong  > 0 && g_sigMartEmaScoreLong  >= passTh) ||
+                             (g_sigMartEmaScoreShort > 0 && g_sigMartEmaScoreShort >= passTh));
         }
      }
 
@@ -3241,20 +3304,23 @@ void UpdateStatusPanel()
       bool emaBullEff = (g_sigMartEmaDir==1 && g_sigMartClose1 > g_sigMartEmaFastVal);
       bool emaBearEff = (g_sigMartEmaDir==-1 && g_sigMartClose1 < g_sigMartEmaFastVal);
 
-      // EMA组件文本
+      // EMA组件文本(分级评分: 0=无 / 弱 / 中 / 强)
       string emaT;
       if(InpEntryMode == ENTRY_EMA_ONLY)
-         emaT = emaBullEff ? StringFormat("EMA多%d",InpSMCWeightEMA) : (emaBearEff ? StringFormat("EMA空%d",InpSMCWeightEMA) : "EMA无0");
+         emaT = (g_sigMartEmaScoreLong > 0) ? StringFormat("EMA多%d", g_sigMartEmaScoreLong)
+              : ((g_sigMartEmaScoreShort > 0) ? StringFormat("EMA空%d", g_sigMartEmaScoreShort) : "EMA无0");
       else
-         emaT = emaBullEff ? StringFormat("EMA+%d",InpSMCWeightEMA) : (emaBearEff ? StringFormat("EMA-%d",InpSMCWeightEMA) : "EMA0");
+         emaT = (g_sigMartEmaScoreLong > 0) ? StringFormat("EMA+%d", g_sigMartEmaScoreLong)
+              : ((g_sigMartEmaScoreShort > 0) ? StringFormat("EMA-%d", g_sigMartEmaScoreShort) : "EMA0");
 
       // 计算综合总分（与入场逻辑一致）
       int totalBull, totalBear, bestScore, totalMax;
       string dirLabel;
       if(InpEntryMode == ENTRY_EMA_ONLY)
         {
-         totalBull = emaBullEff ? InpSMCWeightEMA : 0;
-         totalBear = emaBearEff ? InpSMCWeightEMA : 0;
+         int passTh = (int)MathRound(InpSMCWeightEMA * 2.0 / 3.0);
+         totalBull = (g_sigMartEmaScoreLong  > 0 && g_sigMartEmaScoreLong  >= passTh) ? g_sigMartEmaScoreLong  : 0;
+         totalBear = (g_sigMartEmaScoreShort > 0 && g_sigMartEmaScoreShort >= passTh) ? g_sigMartEmaScoreShort : 0;
          totalMax = InpSMCWeightEMA;
         }
       else if(InpEntryMode == ENTRY_SMC_ONLY)
@@ -3266,8 +3332,8 @@ void UpdateStatusPanel()
       else // COMBINED
         {
          int normSMC = (smcMaxRaw>0) ? (int)MathRound((double)g_smcScore/smcMaxRaw*InpSMCWeightEMA) : 0;
-         totalBull = (emaBullEff ? InpSMCWeightEMA : 0) + ((g_smcDirection==1) ? normSMC : 0);
-         totalBear = (emaBearEff ? InpSMCWeightEMA : 0) + ((g_smcDirection==-1) ? normSMC : 0);
+         totalBull = g_sigMartEmaScoreLong  + ((g_smcDirection==1)  ? normSMC : 0);
+         totalBear = g_sigMartEmaScoreShort + ((g_smcDirection==-1) ? normSMC : 0);
          totalMax = InpSMCWeightEMA * 2;
         }
       bestScore = MathMax(totalBull, totalBear);
