@@ -175,7 +175,7 @@ enum HEDGE_TRIGGER_MODE
 #define DEF_HEDGE_TRIGGER_MODE HEDGE_BY_EQUITY_PCT
 #endif
 #ifndef DEF_HEDGE_ABSOLUTE_USD
-#define DEF_HEDGE_ABSOLUTE_USD 200.0  // 绝对金额触发(美分)
+#define DEF_HEDGE_ABSOLUTE_USD 10000.0  // 绝对金额触发(美分)
 #endif
 #ifndef DEF_SHOW_PANEL
 #define DEF_SHOW_PANEL true
