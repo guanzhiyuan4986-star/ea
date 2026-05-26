@@ -1683,6 +1683,7 @@ void TryMartEntry()
 void TryMartAddLayer()
   {
    if(g_martDirection == MART_DIR_NONE) return;
+   if(g_hedgeActive) return;  // 对冲激活=锁仓状态，停止加层防止敞口继续放大
    if(g_martMaxLayerSeq >= InpMartMaxLayers) return;
    if(g_martTotalLots >= InpMartMaxTotalLots) return;
 
