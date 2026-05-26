@@ -1575,8 +1575,10 @@ bool GetMartSignal(bool &longSignal, bool &shortSignal)
          // EMA 使用分级评分(0/弱/中/强)，与SMC归一化值同维度相加
          int totalBull = emaScoreLong  + (smcDir == 1  ? normalizedSMC : 0);
          int totalBear = emaScoreShort + (smcDir == -1 ? normalizedSMC : 0);
-         longSignal  = (totalBull >= InpSMCScoreThreshold && totalBull > totalBear);
-         shortSignal = (totalBear >= InpSMCScoreThreshold && totalBear > totalBull);
+         // 净分入场：要求强方扣减弱方后仍≥阈值，避免 EMA 与 SMC 反向时弱信号入场
+         int netScore = MathAbs(totalBull - totalBear);
+         longSignal  = (totalBull > totalBear && netScore >= InpSMCScoreThreshold);
+         shortSignal = (totalBear > totalBull && netScore >= InpSMCScoreThreshold);
 
          // H4过滤也应用于综合信号
          if(InpMartH4FilterMode != H4_FILTER_OFF)
@@ -1586,7 +1588,7 @@ bool GetMartSignal(bool &longSignal, bool &shortSignal)
            }
 
          if(!longSignal && !shortSignal && StringLen(g_noEntryReason) == 0)
-            g_noEntryReason = "综合评分不足(多:" + IntegerToString(totalBull) + " 空:" + IntegerToString(totalBear) + " 需≥" + IntegerToString(InpSMCScoreThreshold) + ")";
+            g_noEntryReason = "综合净分不足(多:" + IntegerToString(totalBull) + " 空:" + IntegerToString(totalBear) + " 净:" + IntegerToString(netScore) + " 需≥" + IntegerToString(InpSMCScoreThreshold) + ")";
         }
          break;
      }
@@ -2786,7 +2788,7 @@ void CreateStatusPanel()
    if(ObjectFind(0, OBJ_SMC_OFFSET) < 0)
       ObjectCreate(0, OBJ_SMC_OFFSET, OBJ_LABEL, 0, 0, 0);
    ObjectSetInteger(0, OBJ_SMC_OFFSET, OBJPROP_CORNER, CORNER_LEFT_UPPER);
-   ObjectSetInteger(0, OBJ_SMC_OFFSET, OBJPROP_XDISTANCE, g_panelX + 360);
+   ObjectSetInteger(0, OBJ_SMC_OFFSET, OBJPROP_XDISTANCE, g_panelX + 370);
    ObjectSetInteger(0, OBJ_SMC_OFFSET, OBJPROP_YDISTANCE, totalY);
    ObjectSetInteger(0, OBJ_SMC_OFFSET, OBJPROP_COLOR, C'180,200,140');
    ObjectSetInteger(0, OBJ_SMC_OFFSET, OBJPROP_FONTSIZE, 9);
@@ -3351,11 +3353,11 @@ void UpdateStatusPanel()
          totalBear = g_sigMartEmaScoreShort + ((g_smcDirection==-1) ? normSMC : 0);
          totalMax = InpSMCWeightEMA * 2;
         }
-      bestScore = MathMax(totalBull, totalBear);
+      bestScore = MathAbs(totalBull - totalBear);   // 净分 = 强方-弱方，与入场判定一致
       dirLabel = (totalBull >= totalBear) ? "多" : "空";
       string passMark = (bestScore >= InpSMCScoreThreshold && totalBull != totalBear) ? "V" : "X";
 
-      string scoreLine = StringFormat("%s 失:%s 供:%s 订:%s 缺:%s 空:%s 破:%s>%s %d/%d%s %d/%d 距:%s",
+      string scoreLine = StringFormat("%s 失:%s 供:%s 订:%s 缺:%s 空:%s 破:%s>%s 净%d/%d%s %d/%d 距:%s",
          emaT, imbT, sdT, obT, fvgT, lvT, brkT,
          dirLabel, bestScore, totalMax, passMark,
          g_martLayerCount, InpMartMaxLayers, distText);
@@ -3554,9 +3556,9 @@ void UpdateStatusPanel()
          totalBear = ((emaEffective && g_sigMartEmaDir == -1) ? InpSMCWeightEMA : 0) + ((g_smcDirection == -1) ? normSMC : 0);
          totalMaxScore = InpSMCWeightEMA * 2;
         }
-      int bestScore = MathMax(totalBull, totalBear);
+      int bestScore = MathAbs(totalBull - totalBear);   // 净分入场：强方-弱方
       string dirLabel = totalBull >= totalBear ? "多" : "空";
-      string totalText = StringFormat("综合: 多:%d 空:%d [%s%d/%d 阈值:%d]", totalBull, totalBear, dirLabel, bestScore, totalMaxScore, InpSMCScoreThreshold);
+      string totalText = StringFormat("综合: 多:%d 空:%d [%s净%d/%d 阈值:%d]", totalBull, totalBear, dirLabel, bestScore, totalMaxScore, InpSMCScoreThreshold);
       // ATR扩张比
       double atrRatio = 1.0;
       if(g_hATR_Spacing != INVALID_HANDLE && g_hATR_SpacingLong != INVALID_HANDLE)
@@ -3574,7 +3576,7 @@ void UpdateStatusPanel()
             totalText += StringFormat(" CCI实时:%+d/±%d", (int)MathRound(cciVal[0]), InpSMC_CCIExtreme);
         }
       // 账户偏移后的实际生效参数(ATR系数/基准间距/篮子止盈) → 独立 Label，避开综合行 63字符上限
-      string offsetText = StringFormat("[偏 %.3f/%.0f/%.1f]", g_effATRCoeff, g_effBaseSpacing, g_effBasketTP);
+      string offsetText = StringFormat("[偏移%.3f 间距%.0f TP%.1f]", g_effATRCoeff, g_effBaseSpacing, g_effBasketTP);
       ObjectSetString(0, OBJ_SMC_OFFSET, OBJPROP_TEXT, offsetText);
       ObjectSetString(0, OBJ_SMC_TOTAL, OBJPROP_TEXT, totalText);
       ObjectSetInteger(0, OBJ_SMC_TOTAL, OBJPROP_COLOR, bestScore >= InpSMCScoreThreshold ? C'80,200,120' : C'140,155,180');
