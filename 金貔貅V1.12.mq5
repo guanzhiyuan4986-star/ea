@@ -3556,10 +3556,10 @@ void UpdateStatusPanel()
         {
          double cciVal[1];
          if(CopyBuffer(g_hCCI, 0, 1, 1, cciVal) >= 1)
-            totalText += StringFormat("  CCI实时:%+d/±%d", (int)MathRound(cciVal[0]), InpSMC_CCIExtreme);
+            totalText += StringFormat(" CCI实时:%+d/±%d", (int)MathRound(cciVal[0]), InpSMC_CCIExtreme);
         }
-      // 账户偏移后的实际生效参数
-      totalText += StringFormat("  [偏:系%.3f 距%.0f 止%.1f]", g_effATRCoeff, g_effBaseSpacing, g_effBasketTP);
+      // 账户偏移后的实际生效参数(ATR系数/基准间距/篮子止盈)
+      totalText += StringFormat(" 偏%.3f/%.0f/%.1f", g_effATRCoeff, g_effBaseSpacing, g_effBasketTP);
       ObjectSetString(0, OBJ_SMC_TOTAL, OBJPROP_TEXT, totalText);
       ObjectSetInteger(0, OBJ_SMC_TOTAL, OBJPROP_COLOR, bestScore >= InpSMCScoreThreshold ? C'80,200,120' : C'140,155,180');
      }
