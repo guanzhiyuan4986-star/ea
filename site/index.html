@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>金貔貅 - 黄金智能交易EA</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap');
+
+  :root {
+    --gold: #d4a745;
+    --gold-light: #f0d68a;
+    --gold-dark: #8b6914;
+    --dark: #0a0a0f;
+    --dark2: #12121a;
+    --dark3: #1a1a28;
+    --card: rgba(20,20,35,0.85);
+    --text: #e0e0e8;
+    --text2: #a0a0b8;
+    --accent: #c8963e;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Noto Sans SC', -apple-system, sans-serif;
+    background: var(--dark);
+    color: var(--text);
+    line-height: 1.8;
+    overflow-x: hidden;
+  }
+
+  /* ── Navigation ── */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 1000;
+    padding: 16px 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: background 0.4s;
+  }
+  nav.scrolled {
+    background: rgba(10,10,18,0.95);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid rgba(212,167,69,0.2);
+  }
+  nav .nav-logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--gold);
+  }
+  nav .nav-logo img { height: 42px; }
+  nav .nav-links { display: flex; gap: 28px; list-style: none; }
+  nav .nav-links a {
+    color: var(--text2);
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    transition: color 0.3s;
+  }
+  nav .nav-links a:hover { color: var(--gold); }
+
+  /* ── Hero ── */
+  .hero {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    overflow: hidden;
+  }
+  .hero-bg {
+    position: absolute;
+    inset: 0;
+    background: url('images/bg.png') center/cover no-repeat;
+    filter: brightness(0.25) saturate(0.6);
+    transform: scale(1.05);
+  }
+  .hero-overlay {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at center, transparent 30%, var(--dark) 90%);
+  }
+  .hero-content { position: relative; z-index: 2; padding: 0 20px; }
+  .hero-logo {
+    width: 180px;
+    margin-bottom: 30px;
+    filter: drop-shadow(0 0 40px rgba(212,167,69,0.5));
+    animation: float 3s ease-in-out infinite;
+  }
+  @keyframes float {
+    0%,100% { transform: translateY(0); }
+    50% { transform: translateY(-12px); }
+  }
+  .hero h1 {
+    font-size: clamp(42px, 7vw, 80px);
+    font-weight: 900;
+    background: linear-gradient(135deg, var(--gold-light), var(--gold), var(--gold-dark));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 16px;
+    letter-spacing: 4px;
+  }
+  .hero .subtitle {
+    font-size: clamp(16px, 2.5vw, 22px);
+    color: var(--text2);
+    font-weight: 300;
+    letter-spacing: 3px;
+    margin-bottom: 40px;
+  }
+  .hero-btn {
+    display: inline-block;
+    padding: 14px 48px;
+    border: 2px solid var(--gold);
+    color: var(--gold);
+    text-decoration: none;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    border-radius: 50px;
+    transition: all 0.4s;
+  }
+  .hero-btn:hover {
+    background: var(--gold);
+    color: var(--dark);
+    box-shadow: 0 0 40px rgba(212,167,69,0.4);
+  }
+  .hero-scroll {
+    position: absolute;
+    bottom: 40px;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    color: var(--text2);
+    font-size: 12px;
+    letter-spacing: 2px;
+    animation: bounce 2s ease infinite;
+  }
+  @keyframes bounce {
+    0%,100% { transform: translateY(0); }
+    50% { transform: translateY(8px); }
+  }
+  .hero-scroll span { font-size: 20px; }
+
+  /* ── Sections ── */
+  section { padding: 100px 40px; max-width: 1200px; margin: 0 auto; }
+
+  .section-label {
+    display: inline-block;
+    padding: 6px 20px;
+    border: 1px solid rgba(212,167,69,0.3);
+    border-radius: 50px;
+    color: var(--gold);
+    font-size: 13px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+    text-align: center;
+  }
+  .section-title {
+    font-size: clamp(28px, 4vw, 44px);
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 16px;
+    color: #fff;
+  }
+  .section-desc {
+    text-align: center;
+    color: var(--text2);
+    max-width: 700px;
+    margin: 0 auto 60px;
+    font-size: 16px;
+  }
+
+  /* ── Overview ── */
+  .overview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 28px;
+  }
+  .ov-card {
+    background: var(--card);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 20px;
+    padding: 40px 32px;
+    text-align: center;
+    transition: all 0.4s;
+    position: relative;
+    overflow: hidden;
+  }
+  .ov-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 50%; transform: translateX(-50%);
+    width: 60px; height: 3px;
+    background: var(--gold);
+    border-radius: 0 0 3px 3px;
+    transition: width 0.4s;
+  }
+  .ov-card:hover { transform: translateY(-6px); border-color: rgba(212,167,69,0.25); }
+  .ov-card:hover::before { width: 120px; }
+  .ov-card .icon {
+    font-size: 44px;
+    margin-bottom: 18px;
+    display: block;
+  }
+  .ov-card h3 { font-size: 19px; margin-bottom: 10px; color: #fff; }
+  .ov-card p { font-size: 14px; color: var(--text2); line-height: 1.7; }
+
+  /* ── Strategy Flow ── */
+  .flow-section { background: var(--dark2); }
+  .flow-section .section-title { text-align: center; }
+  .flow-container { max-width: 1100px; margin: 0 auto; }
+  .flow-row {
+    display: flex;
+    align-items: stretch;
+    justify-content: center;
+    gap: 16px;
+  }
+  .flow-row-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    margin-top: 8px;
+  }
+  .flow-step {
+    background: var(--card);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 20px;
+    padding: 36px 28px;
+    text-align: center;
+    flex: 1 1 200px;
+    max-width: 230px;
+    position: relative;
+    transition: all 0.4s;
+  }
+  .flow-step:hover {
+    border-color: rgba(212,167,69,0.3);
+    transform: translateY(-4px);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.4);
+  }
+  .flow-step .step-num {
+    width: 44px; height: 44px;
+    line-height: 44px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+    color: #000;
+    font-weight: 900;
+    font-size: 18px;
+    margin: 0 auto 16px;
+  }
+  .flow-step h4 { font-size: 16px; color: #fff; margin-bottom: 8px; }
+  .flow-step p { font-size: 13px; color: var(--text2); line-height: 1.6; }
+  .flow-arrow {
+    display: flex;
+    align-items: center;
+    font-size: 24px;
+    color: var(--gold);
+    flex-shrink: 0;
+    padding-top: 44px;
+    opacity: 0.7;
+  }
+  .flow-arrow-down {
+    display: flex;
+    justify-content: center;
+    padding: 10px 0;
+    font-size: 26px;
+    color: var(--gold);
+    opacity: 0.8;
+    letter-spacing: 6px;
+  }
+
+  /* ── Parameters Table ── */
+  .param-group {
+    background: var(--card);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 20px;
+    margin-bottom: 24px;
+    overflow: hidden;
+  }
+  .param-group-header {
+    padding: 20px 32px;
+    background: rgba(212,167,69,0.08);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: background 0.3s;
+  }
+  .param-group-header:hover { background: rgba(212,167,69,0.13); }
+  .param-group-header h3 {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--gold-light);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .param-group-header .arrow { transition: transform 0.3s; font-size: 14px; color: var(--gold); }
+  .param-group.open .param-group-header .arrow { transform: rotate(180deg); }
+  .param-table {
+    width: 100%;
+    border-collapse: collapse;
+    display: none;
+  }
+  .param-group.open .param-table { display: table; }
+  .param-table th {
+    text-align: left;
+    padding: 16px 32px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text2);
+    background: rgba(0,0,0,0.3);
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+  .param-table td {
+    padding: 14px 32px;
+    font-size: 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+  }
+  .param-table tr:last-child td { border-bottom: none; }
+  .param-table .param-name { color: #fff; font-weight: 500; white-space: nowrap; }
+  .param-table .param-default { color: var(--gold); font-family: monospace; font-size: 13px; }
+  .param-table .param-desc { color: var(--text2); font-size: 13px; }
+
+  /* ── Features ── */
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 24px;
+  }
+  .feature-card {
+    background: var(--card);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 20px;
+    padding: 36px 30px;
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+    transition: all 0.4s;
+  }
+  .feature-card:hover { border-color: rgba(212,167,69,0.2); transform: translateY(-3px); }
+  .feature-icon {
+    font-size: 32px;
+    flex-shrink: 0;
+    width: 56px; height: 56px;
+    border-radius: 16px;
+    background: rgba(212,167,69,0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .feature-info h4 { font-size: 16px; color: #fff; margin-bottom: 6px; }
+  .feature-info p { font-size: 13px; color: var(--text2); line-height: 1.6; }
+
+  /* ── Screenshot ── */
+  .screenshot-wrap {
+    text-align: center;
+    background: var(--dark2);
+  }
+  .screenshot-wrap img {
+    max-width: 100%;
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+
+  /* ── Stats ── */
+  .stats-row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 40px;
+    max-width: 800px;
+    margin: 0 auto 60px;
+  }
+  .stat-item { text-align: center; }
+  .stat-num {
+    font-size: 48px;
+    font-weight: 900;
+    background: linear-gradient(135deg, var(--gold-light), var(--gold));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .stat-label { font-size: 14px; color: var(--text2); margin-top: 4px; }
+
+  /* ── Footer ── */
+  footer {
+    background: var(--dark2);
+    border-top: 1px solid rgba(255,255,255,0.05);
+    text-align: center;
+    padding: 40px;
+    color: var(--text2);
+    font-size: 13px;
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 768px) {
+    nav { padding: 12px 20px; }
+    nav .nav-links { display: none; }
+    section { padding: 60px 20px; }
+    .flow-row { flex-direction: column; align-items: center; }
+    .flow-row-bottom { flex-direction: column; align-items: center; }
+    .flow-arrow { transform: rotate(90deg); padding: 0; }
+    .flow-step { max-width: 100%; }
+    .stats-row { gap: 24px; }
+    .param-table td, .param-table th { padding: 10px 16px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════ Navigation ══════ -->
+<nav id="nav">
+  <div class="nav-logo">
+    <img src="images/logo.png" alt="金貔貅">
+    金貔貅
+  </div>
+  <ul class="nav-links">
+    <li><a href="#overview">整体介绍</a></li>
+    <li><a href="#strategy">交易策略</a></li>
+    <li><a href="#params">参数详解</a></li>
+    <li><a href="#features">核心优势</a></li>
+    <li><a href="#screenshot">程序界面</a></li>
+    <li><a href="#contact">获取EA</a></li>
+  </ul>
+</nav>
+
+<!-- ══════ Hero ══════ -->
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-overlay"></div>
+  <div class="hero-content">
+    <img src="images/logo.png" alt="金貔貅" class="hero-logo">
+    <h1>金 貔 貅</h1>
+    <p class="subtitle">XAUUSD 黄金 · 马丁加仓 · SMC智能资金入场</p>
+    <a href="#overview" class="hero-btn">探索EA</a>
+    <a href="jpqea.rar" class="hero-btn" style="margin-left:16px;background:rgba(212,167,69,0.15);">下载EA ↓</a>
+  </div>
+  <div class="hero-scroll">
+    向下滚动<span>↓</span>
+  </div>
+</section>
+
+<!-- ══════ Overview ══════ -->
+<section id="overview">
+  <div style="text-align:center;"><span class="section-label">OVERVIEW</span></div>
+  <h2 class="section-title">金貔貅是什么？</h2>
+  <p class="section-desc">
+    金貔貅是一款专为<strong>XAUUSD黄金</strong>打造的MetaTrader 5全自动交易EA。
+    融合<strong>EMA趋势跟随</strong>与<strong>SMC聪明钱概念</strong>双重入场体系，
+    配合<strong>马丁格尔加仓</strong>策略摊平成本，篮子止盈统一离场，
+    实现稳健的自动化交易。
+  </p>
+  <div class="stats-row">
+    <div class="stat-item">
+      <div class="stat-num">60+</div>
+      <div class="stat-label">可调参数</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">7</div>
+      <div class="stat-label">SMC信号类型</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">3</div>
+      <div class="stat-label">时间周期层级</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">24h</div>
+      <div class="stat-label">全天候运行</div>
+    </div>
+  </div>
+  <div class="overview-grid">
+    <div class="ov-card">
+      <span class="icon">🎯</span>
+      <h3>双重入场体系</h3>
+      <p>EMA均线金叉死叉 + SMC聪明钱七大信号，可独立使用也可综合评分，适应不同行情风格</p>
+    </div>
+    <div class="ov-card">
+      <span class="icon">📈</span>
+      <h3>马丁加仓引擎</h3>
+      <p>多层递进加仓，ATR动态间距自适应波动，手数乘数可配，总仓位硬上限保护</p>
+    </div>
+    <div class="ov-card">
+      <span class="icon">🛡️</span>
+      <h3>五重风控体系</h3>
+      <p>日亏损锁仓、硬止损强平、移动止盈追踪、快速亏损紧急停止、亏损自动对冲保护</p>
+    </div>
+    <div class="ov-card">
+      <span class="icon">📊</span>
+      <h3>实时状态面板</h3>
+      <p>方向、层数、距下层距离、浮盈、TP进度、风控状态一目了然，历史交易记录可查</p>
+    </div>
+  </div>
+</section>
+
+<!-- ══════ Strategy ══════ -->
+<section class="flow-section" id="strategy">
+  <div class="section-title" style="text-align:center;">交易策略流程</div>
+  <p class="section-desc" style="color:#999;">金貔貅从信号判定到最终平仓的完整闭环</p>
+  <div class="flow-container">
+    <div class="flow-row">
+      <div class="flow-step">
+        <div class="step-num">1</div>
+        <h4>时段检查</h4>
+        <p>北京时间过滤，数据行情自动避让，交易时段可自定义</p>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <div class="step-num">2</div>
+        <h4>方向判定</h4>
+        <p>EMA金叉死叉 + H4大周期过滤 + SMC七大信号综合评分</p>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <div class="step-num">3</div>
+        <h4>首单入场</h4>
+        <p>信号确认后首单手数开仓，记录方向与入场价格</p>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <div class="step-num">4</div>
+        <h4>马丁加仓</h4>
+        <p>价格反向走够间距触发加仓，手数倍率递增，ATR动态调整间距</p>
+      </div>
+    </div>
+    <div class="flow-arrow-down">· · · ↓ · · ·</div>
+    <div class="flow-row-bottom">
+      <div class="flow-step" style="max-width:320px;">
+        <div class="step-num">5</div>
+        <h4>篮子止盈</h4>
+        <p>整体浮盈达标→全部平仓；浮盈回撤→追踪止盈保护；浮亏超限→硬止损强平</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════ Parameters ══════ -->
+<section id="params">
+  <div style="text-align:center;"><span class="section-label">PARAMETERS</span></div>
+  <h2 class="section-title">参数详解</h2>
+  <p class="section-desc">点击展开每个参数组的详细说明</p>
+
+  <!-- 基础设置 -->
+  <div class="param-group open">
+    <div class="param-group-header" onclick="this.parentElement.classList.toggle('open')">
+      <h3>🔧 基础设置</h3><span class="arrow">▼</span>
+    </div>
+    <table class="param-table">
+      <tr><th>参数名称</th><th>默认值</th><th>说明</th></tr>
+      <tr><td class="param-name">策略预设名称</td><td class="param-default">金貔貅</td><td class="param-desc">EA标识名称，多图表运行时方便区分</td></tr>
+      <tr><td class="param-name">EA唯一标识号(Magic)</td><td class="param-default">26042702</td><td class="param-desc">每单成交后带上的魔术号，区分不同EA的持仓</td></tr>
+      <tr><td class="param-name">授权码</td><td class="param-default">—</td><td class="param-desc">联系管理员获取，用于激活EA</td></tr>
+    </table>
+  </div>
+
+  <!-- 时间与交易时段 -->
+  <div class="param-group">
+    <div class="param-group-header" onclick="this.parentElement.classList.toggle('open')">
+      <h3>⏰ 时间与交易时段（北京时间）</h3><span class="arrow">▼</span>
+    </div>
+    <table class="param-table">
+      <tr><th>参数名称</th><th>默认值</th><th>说明</th></tr>
+      <tr><td class="param-name">北京时区</td><td class="param-default">UTC+8</td><td class="param-desc">北京时间与UTC的时差，一般不用改</td></tr>
+      <tr><td class="param-name">自动检测服务器时区</td><td class="param-default">true</td><td class="param-desc">EA自动识别经纪商服务器所在时区</td></tr>
+      <tr><td class="param-name">服务器UTC偏移(手动)</td><td class="param-default">2</td><td class="param-desc">自动检测不准时手动填写</td></tr>
+      <tr><td class="param-name">启用定时停止交易</td><td class="param-default">false</td><td class="param-desc">在指定时段暂停交易（如非农前后）</td></tr>
+      <tr><td class="param-name">停止交易开始(北京时)</td><td class="param-default">20</td><td class="param-desc">几点开始不交易</td></tr>
+      <tr><td class="param-name">停止交易结束(北京时)</td><td class="param-default">23</td><td class="param-desc">几点恢复交易</td></tr>
+    </table>
+  </div>
+
+  <!-- 全局风控 -->
+  <div class="param-group">
+    <div class="param-group-header" onclick="this.parentElement.classList.toggle('open')">
+      <h3>🛡️ 全局风控</h3><span class="arrow">▼</span>
+    </div>
+    <table class="param-table">
+      <tr><th>参数名称</th><th>默认值</th><th>说明</th></tr>
+      <tr><td class="param-name">日最大亏损占权益百分比</td><td class="param-default">8.0%</td><td class="param-desc">当天亏到权益的百分之多少就停手</td></tr>
+      <tr><td class="param-name">允许最大点差</td><td class="param-default">450 点</td><td class="param-desc">行情点差超过此值不开单，防止滑点</td></tr>
+      <tr><td class="param-name">使用固定手数</td><td class="param-default">false</td><td class="param-desc">勾上则每单固定手数，否则按马丁倍率计算</td></tr>
+      <tr><td class="param-name">固定手数大小</td><td class="param-default">0.01</td><td class="param-desc">固定手数模式下的每单手数</td></tr>
+    </table>
+  </div>
+
+  <!-- 马丁加仓 -->
+  <div class="param-group open">
+    <div class="param-group-header" onclick="this.parentElement.classList.toggle('open')">
+      <h3>📈 马丁加仓核心</h3><span class="arrow">▼</span>
+    </div>
+    <table class="param-table">
+      <tr><th>参数名称</th><th>默认值</th><th>说明</th></tr>
+      <tr><td class="param-name">首单手数</td><td class="param-default">0.01</td><td class="param-desc">第一单下多少手</td></tr>
+      <tr><td class="param-name">每层手数乘数</td><td class="param-default">1.20</td><td class="param-desc">每加一层仓，手数乘以此倍率</td></tr>
+      <tr><td class="param-name">单层最大手数</td><td class="param-default">1.50</td><td class="param-desc">单次加仓手数上限，防止后期手数过大</td></tr>
+      <tr><td class="param-name">最多加仓几层</td><td class="param-default">50</td><td class="param-desc">最大加仓次数，到达即停止加仓</td></tr>
+      <tr><td class="param-name">第1层加仓间距(点)</td><td class="param-default">100</td><td class="param-desc">首次加仓距离入场价多少点</td></tr>
+      <tr><td class="param-name">每层多加几点间距</td><td class="param-default">20</td><td class="param-desc">每多一层额外增加间距，越往后越不容易触发</td></tr>
+      <tr><td class="param-name" style="color:#f0d68a;">★ ATR动态间距系数</td><td class="param-default" style="color:#f0d68a;">0.05</td><td class="param-desc"><strong>新功能：</strong>0=关闭，XAUUSD建议0.03~0.10。间距=基础间距+ATR×系数，波动大自动放宽</td></tr>
+      <tr><td class="param-name">ATR计算周期</td><td class="param-default">14</td><td class="param-desc">ATR指标周期，一般无需修改</td></tr>
+      <tr><td class="param-name">所有层加起来最大手数</td><td class="param-default">2.00</td><td class="param-desc">整篮子总仓位上限</td></tr>
+    </table>
+  </div>
+
+  <!-- 止盈止损 -->
+  <div class="param-group">
+    <div class="param-group-header" onclick="this.parentElement.classList.toggle('open')">
+      <h3>💰 止盈止损</h3><span class="arrow">▼</span>
+    </div>
+    <table class="param-table">
+      <tr><th>参数名称</th><th>默认值</th><th>说明</th></tr>
+      <tr><td class="param-name">篮子止盈基础(美分)</td><td class="param-default">8.0</td><td class="param-desc">整篮子浮盈达标平仓，0=关闭。100美分=1美元</td></tr>
+      <tr><td class="param-name">每层TP增量(美分)</td><td class="param-default">8.0</td><td class="param-desc">每多一层仓，止盈目标增加多少</td></tr>
+      <tr><td class="param-name">整篮子强平(美分)</td><td class="param-default">0.0</td><td class="param-desc">浮亏到此金额全部砍仓，0=关闭</td></tr>
+      <tr><td class="param-name">浮盈回撤平仓%</td><td class="param-default">50.0</td><td class="param-desc">从最高浮盈回撤百分之多少触发追踪止盈，0=关闭</td></tr>
+      <tr><td class="param-name">追踪启动门槛(%)</td><td class="param-default">60.0</td><td class="param-desc">浮盈达TP的百分之多少后启动追踪止盈</td></tr>
+      <tr><td class="param-name">平仓后冷却秒数</td><td class="param-default">45</td><td class="param-desc">平仓后等多少秒才允许再开新单</td></tr>
+    </table>
+  </div>
+
+  <!-- 入场信号 -->
+  <div class="param-group">
+    <div class="param-group-header" onclick="this.parentElement.classList.toggle('open')">
+      <h3>📶 入场信号（EMA）</h3><span class="arrow">▼</span>
+    </div>
+    <table class="param-table">
+      <tr><th>参数名称</th><th>默认值</th><th>说明</th></tr>
+      <tr><td class="param-name">入场K线周期</td><td class="param-default">M5</td><td class="param-desc">计算EMA信号的时间周期</td></tr>
+      <tr><td class="param-name">快速EMA周期</td><td class="param-default">8</td><td class="param-desc">快线均线参数，上穿慢线为做多信号</td></tr>
+      <tr><td class="param-name">慢速EMA周期</td><td class="param-default">21</td><td class="param-desc">慢线均线参数</td></tr>
+      <tr><td class="param-name">用H4大周期过滤方向</td><td class="param-default">true</td><td class="param-desc">叠加H4趋势方向确认，过滤假信号</td></tr>
+      <tr><td class="param-name">每天几点开始交易</td><td class="param-default">0</td><td class="param-desc">北京时间，0=全天</td></tr>
+      <tr><td class="param-name">每天几点停止交易</td><td class="param-default">0</td><td class="param-desc">北京时间，0=全天</td></tr>
+    </table>
+  </div>
+
+  <!-- SMC 大周期 -->
+  <div class="param-group">
+    <div class="param-group-header" onclick="this.parentElement.classList.toggle('open')">
+      <h3>🧠 SMC大周期方向（4H）</h3><span class="arrow">▼</span>
+    </div>
+    <table class="param-table">
+      <tr><th>参数名称</th><th>默认值</th><th>说明</th></tr>
+      <tr><td class="param-name">入场模式</td><td class="param-default">综合评分</td><td class="param-desc">仅EMA / 仅SMC / 综合评分 三种模式</td></tr>
+      <tr><td class="param-name">综合评分入场阈值</td><td class="param-default">30</td><td class="param-desc">0-100分，总分达标才开单</td></tr>
+      <tr><td class="param-name" colspan="3" style="color:var(--gold);text-align:center;">—— 大周期方向(4H) ——</td></tr>
+      <tr><td class="param-name">Imbalance 失衡检测</td><td class="param-default">true</td><td class="param-desc">大阳大阴后价格空白区，代表主力方向</td></tr>
+      <tr><td class="param-name">Supply/Demand 供需区</td><td class="param-default">true</td><td class="param-desc">识别历史上的供应区和需求区关键位置</td></tr>
+      <tr><td class="param-name" colspan="3" style="color:var(--gold);text-align:center;">—— 中周期入场(1H) ——</td></tr>
+      <tr><td class="param-name">Order Block 订单块</td><td class="param-default">true</td><td class="param-desc">主力挂单区域，回踩支撑/阻力位</td></tr>
+      <tr><td class="param-name">FVG 公允价值缺口</td><td class="param-default">true</td><td class="param-desc">三K线跳空区，价格大概率回补</td></tr>
+      <tr><td class="param-name" colspan="3" style="color:var(--gold);text-align:center;">—— 小周期精确(15M) ——</td></tr>
+      <tr><td class="param-name">Liquidity Void 流动性空白</td><td class="param-default">true</td><td class="param-desc">急速行情中小周期的真空区域</td></tr>
+      <tr><td class="param-name">Breaker 破坏块</td><td class="param-default">true</td><td class="param-desc">突破前高/低后翻转回来的反转形态</td></tr>
+    </table>
+  </div>
+
+  <!-- SMC权重 -->
+  <div class="param-group">
+    <div class="param-group-header" onclick="this.parentElement.classList.toggle('open')">
+      <h3>⚖️ SMC综合评分权重</h3><span class="arrow">▼</span>
+    </div>
+    <table class="param-table">
+      <tr><th>信号类型</th><th>权重</th><th>周期</th></tr>
+      <tr><td class="param-name">Imbalance 失衡</td><td class="param-default">15</td><td class="param-desc">大周期4H</td></tr>
+      <tr><td class="param-name">Supply/Demand 供需区</td><td class="param-default">15</td><td class="param-desc">大周期4H</td></tr>
+      <tr><td class="param-name">Order Block 订单块</td><td class="param-default">13</td><td class="param-desc">中周期1H</td></tr>
+      <tr><td class="param-name">FVG 公允缺口</td><td class="param-default">12</td><td class="param-desc">中周期1H</td></tr>
+      <tr><td class="param-name">Liquidity Void 流动空白</td><td class="param-default">8</td><td class="param-desc">小周期15M</td></tr>
+      <tr><td class="param-name">Breaker 破坏块</td><td class="param-default">7</td><td class="param-desc">小周期15M</td></tr>
+      <tr><td class="param-name">EMA信号</td><td class="param-default">30</td><td class="param-desc">EMA金叉死叉</td></tr>
+    </table>
+  </div>
+
+  <!-- 高级风控 -->
+  <div class="param-group">
+    <div class="param-group-header" onclick="this.parentElement.classList.toggle('open')">
+      <h3>🔐 高级风控（默认关闭）</h3><span class="arrow">▼</span>
+    </div>
+    <table class="param-table">
+      <tr><th>参数名称</th><th>默认值</th><th>说明</th></tr>
+      <tr><td class="param-name">启用快速亏损紧急停止</td><td class="param-default">false</td><td class="param-desc">短时间内快速亏损触发保护暂停</td></tr>
+      <tr><td class="param-name">亏损触发金额(美分)</td><td class="param-default">800</td><td class="param-desc">亏多少触发紧急停止</td></tr>
+      <tr><td class="param-name">时间窗口(秒)</td><td class="param-default">300</td><td class="param-desc">在多少秒内亏损算"快速"</td></tr>
+      <tr><td class="param-name">回本解除金额(美分)</td><td class="param-default">400</td><td class="param-desc">赚回多少解除紧急停止</td></tr>
+      <tr><td class="param-name">启用亏损对冲保护</td><td class="param-default">false</td><td class="param-desc">亏损达标后开反向单锁仓</td></tr>
+      <tr><td class="param-name">对冲触发方式</td><td class="param-default">权益百分比</td><td class="param-desc">按权益%或绝对金额触发</td></tr>
+      <tr><td class="param-name">对冲触发(权益%)</td><td class="param-default">40.0%</td><td class="param-desc">亏到权益的百分之多少触发对冲</td></tr>
+      <tr><td class="param-name">对冲触发(美分)</td><td class="param-default">200.0</td><td class="param-desc">亏到指定美分数触发对冲</td></tr>
+      <tr><td class="param-name">对冲手数比例</td><td class="param-default">0.50</td><td class="param-desc">对冲单占原仓位比例，0.5=一半</td></tr>
+      <tr><td class="param-name">对冲释放模式</td><td class="param-default">固定阈值</td><td class="param-desc">固定阈值释放 或 动态按层数递增释放</td></tr>
+    </table>
+  </div>
+
+  <!-- 面板 -->
+  <div class="param-group">
+    <div class="param-group-header" onclick="this.parentElement.classList.toggle('open')">
+      <h3>🖥️ 状态面板 &amp; 历史记录</h3><span class="arrow">▼</span>
+    </div>
+    <table class="param-table">
+      <tr><th>参数名称</th><th>默认值</th><th>说明</th></tr>
+      <tr><td class="param-name">显示状态信息面板</td><td class="param-default">true</td><td class="param-desc">图表左上角显示EA运行状态面板</td></tr>
+      <tr><td class="param-name">面板位置(X/Y)</td><td class="param-default">5, 5</td><td class="param-desc">面板左上角距离窗口左边和上边的像素</td></tr>
+      <tr><td class="param-name">面板尺寸(宽×高)</td><td class="param-default">680×380</td><td class="param-desc">面板宽高像素值</td></tr>
+      <tr><td class="param-name">刷新间隔(秒)</td><td class="param-default">2</td><td class="param-desc">每隔几秒更新面板数据</td></tr>
+      <tr><td class="param-name">显示最近N天交易记录</td><td class="param-default">15</td><td class="param-desc">面板中展示多少天的历史交易明细</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- ══════ Features ══════ -->
+<section id="features">
+  <div style="text-align:center;"><span class="section-label">FEATURES</span></div>
+  <h2 class="section-title">核心优势</h2>
+  <p class="section-desc">为什么选择金貔貅？</p>
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon">🎯</div>
+      <div class="feature-info">
+        <h4>多周期SMC协同</h4>
+        <p>4H看方向→1H找入场→15M精确定位，三个时间周期各司其职，避免单一周期误判</p>
+      </div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📐</div>
+      <div class="feature-info">
+        <h4>ATR自适应间距</h4>
+        <p>不再使用固定点数加仓，间距随市场波动自动调整。波动大→间距宽，波动小→间距紧，更合理</p>
+      </div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🔬</div>
+      <div class="feature-info">
+        <h4>七大SMC信号可选</h4>
+        <p>Imbalance、Supply/Demand、Order Block、FVG、Liquidity Void、Breaker + EMA，每个都可独立开关</p>
+      </div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">⚖️</div>
+      <div class="feature-info">
+        <h4>综合评分体系</h4>
+        <p>每种信号分配权重，综合打分过阈值才入场。不是"一个信号就干"，而是"多个信号确认才动手"</p>
+      </div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🛡️</div>
+      <div class="feature-info">
+        <h4>五重风控保护</h4>
+        <p>日亏损锁仓 + 硬止损强平 + 移动止盈回撤 + 快速亏损熔断 + 亏损对冲保护，层层设防</p>
+      </div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">⏱️</div>
+      <div class="feature-info">
+        <h4>智能时段管理</h4>
+        <p>北京时间统一管理，自动检测服务器时区，支持定时暂停交易（避数据行情），交易时段可自定义</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════ Screenshot ══════ -->
+<section class="screenshot-wrap" id="screenshot">
+  <div style="text-align:center;padding-bottom:20px;"><span class="section-label">INTERFACE</span></div>
+  <h2 class="section-title" style="color:#fff;">程序运行界面</h2>
+  <p class="section-desc">MT5图表上的实时状态面板与交易展示</p>
+  <img src="images/interface.jpg" alt="金貔貅程序界面" style="max-width:1100px;">
+</section>
+
+<!-- ══════ Contact & Download ══════ -->
+<section style="text-align:center;" id="contact">
+  <div style="text-align:center;"><span class="section-label">CONTACT</span></div>
+  <h2 class="section-title">获取金貔貅</h2>
+  <p class="section-desc">联系客服获取授权码，或直接下载EA安装包</p>
+  <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:24px;margin-top:20px;">
+    <a href="https://t.me/xiaobao4212" target="_blank" style="
+      display:flex;align-items:center;gap:12px;
+      background:rgba(0,136,204,0.15);border:1px solid rgba(0,136,204,0.4);
+      border-radius:16px;padding:20px 36px;text-decoration:none;
+      transition:all 0.4s;
+    " onmouseover="this.style.background='rgba(0,136,204,0.25)';this.style.transform='translateY(-3px)'" onmouseout="this.style.background='rgba(0,136,204,0.15)';this.style.transform='translateY(0)'">
+      <span style="font-size:36px;">💬</span>
+      <div style="text-align:left;">
+        <div style="color:#fff;font-size:18px;font-weight:600;">Telegram 客服</div>
+        <div style="color:#4da8da;font-size:15px;">@xiaobao4212</div>
+      </div>
+    </a>
+    <a href="jpqea.rar" style="
+      display:flex;align-items:center;gap:12px;
+      background:rgba(212,167,69,0.12);border:1px solid rgba(212,167,69,0.4);
+      border-radius:16px;padding:20px 36px;text-decoration:none;
+      transition:all 0.4s;
+    " onmouseover="this.style.background='rgba(212,167,69,0.22)';this.style.transform='translateY(-3px)'" onmouseout="this.style.background='rgba(212,167,69,0.12)';this.style.transform='translateY(0)'">
+      <span style="font-size:36px;">📦</span>
+      <div style="text-align:left;">
+        <div style="color:#fff;font-size:18px;font-weight:600;">下载EA安装包</div>
+        <div style="color:var(--gold-light);font-size:15px;">jpqea.rar</div>
+      </div>
+    </a>
+  </div>
+</section>
+
+<!-- ══════ Footer ══════ -->
+<footer>
+  <p style="margin-bottom:8px;">
+    <img src="images/logo.png" alt="" style="height:36px;vertical-align:middle;margin-right:8px;">
+    <span style="color:var(--gold);font-weight:600;">金貔貅 Golden Pixiu EA</span>
+  </p>
+  <p>XAUUSD 黄金专用 · MT5全自动交易 · 马丁加仓 · SMC智能资金入场</p>
+  <p style="margin-top:16px;font-size:11px;color:#555;">&copy; 2026 金貔貅 · 投资有风险，交易需谨慎</p>
+</footer>
+
+<script>
+// Nav scroll effect
+window.addEventListener('scroll', () => {
+  document.getElementById('nav').classList.toggle('scrolled', window.scrollY > 60);
+});
+
+// Intersection Observer for fade-in
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if(e.isIntersecting) e.target.style.opacity = '1';
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('.ov-card, .feature-card, .flow-step, .param-group').forEach(el => {
+  el.style.opacity = '0';
+  el.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+  observer.observe(el);
+});
+</script>
+</body>
+</html>
